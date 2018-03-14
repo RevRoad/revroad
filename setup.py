@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(name='revroad',
       version='1.0',
@@ -8,5 +8,5 @@ setup(name='revroad',
       author='RevRoad',
       author_email='developer@revroad.com',
       url='https://www.revroad.com',
-      packages=['revroad'],
+      packages=find_packages()
      )
