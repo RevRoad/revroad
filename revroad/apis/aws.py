@@ -7,7 +7,6 @@ import tempfile
 
 from boto3 import Session
 from django.conf import settings
-from django.utils import timezone
 from PIL import Image, ExifTags
 
 
