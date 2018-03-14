@@ -23,7 +23,7 @@ def get_video_data(url):
     else:
         video_id = o.path.replace('/', '')
     if video_id:
-        video_data_items = _make_request(video_id)(video_id)['items']
+        video_data_items = _make_request(video_id)['items']
         if video_data_items:
             video_data = video_data_items[0]
             video_data['embed_url'] = 'https://www.youtube.com/embed/{}'.format(video_id)
