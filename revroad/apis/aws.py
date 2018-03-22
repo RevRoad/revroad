@@ -9,20 +9,19 @@ import tempfile
 
 from boto3 import Session
 from PIL import Image, ExifTags
+
+user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'
 try:
     from django.conf import settings
+    s3_bucket = settings.S3_BUCKET
+    profile_name = settings.AWS_PROFILE_NAME
+    if hasattr(settings, 'USER_AGENT'):
+        user_agent = settings.USER_AGENT
 except:
-    pass
+    s3_bucket = os.getenv('S3_BUCKET')
+    profile_name = os.getenv('AWS_PROFILE_NAME')
 
 logger = logging.getLogger(__name__)
-try:
-    bucket = settings.S3_BUCKET
-    profile_name = settings.AWS_PROFILE_NAME
-    user_agent = settings.USER_AGENT
-except:
-    bucket = os.getenv('S3_BUCKET')
-    profile_name = os.getenv('AWS_PROFILE_NAME')
-    user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'
 
 try:
     session = Session(profile_name=profile_name)
@@ -33,7 +32,7 @@ except:
 
 
 def transfer_image_url_to_s3(url, make_jpeg=False, max_size=None, thumbnail_size=None, **kwargs):
-    if url.startswith('{}/{}/{}'.format(s3.meta.endpoint_url, bucket, kwargs.get('path', ''))):
+    if url.startswith('{}/{}/{}'.format(s3.meta.endpoint_url, s3_bucket, kwargs.get('path', ''))):
         # already in s3
         print('url already in s3', url)
         return url
@@ -83,8 +82,8 @@ def upload_file(file_obj, content_type=None, path=None, file_name=None, make_jpe
     key = '{}{}'.format(path, file_name)
     if not existing_keys or key not in existing_keys:
         # print('uploading to s3', key)
-        s3.put_object(Bucket=bucket, Body=file_data, Key=key, ACL='public-read', ContentType=content_type)
-    return '{}/{}/{}'.format(s3.meta.endpoint_url, bucket, key), file_name
+        s3.put_object(Bucket=s3_bucket, Body=file_data, Key=key, ACL='public-read', ContentType=content_type)
+    return '{}/{}/{}'.format(s3.meta.endpoint_url, s3_bucket, key), file_name
 
 
 def convert_to_jpg(image_file, content_type):
@@ -144,6 +143,6 @@ def make_thumbnail(image_file, content_type, size=None):
 
 def list_objects(prefix=''):
     try:
-        return s3.list_objects(Bucket=bucket, Prefix=prefix).get('Contents', [])
+        return s3.list_objects(Bucket=s3_bucket, Prefix=prefix).get('Contents', [])
     except:
         return []
