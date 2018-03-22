@@ -2,19 +2,29 @@ import hashlib
 import io
 import logging
 import mimetypes
+import os
 import requests
 import tempfile
 
 from boto3 import Session
-from django.conf import settings
 from PIL import Image, ExifTags
+try:
+    from django.conf import settings
+except:
+    pass
 
-
-bucket = settings.S3_BUCKET
 logger = logging.getLogger(__name__)
+try:
+    bucket = settings.S3_BUCKET
+    profile_name = settings.AWS_PROFILE_NAME
+    user_agent = settings.USER_AGENT
+except:
+    bucket = os.getenv('S3_BUCKET')
+    profile_name = os.getenv('AWS_PROFILE_NAME')
+    user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'
 
 try:
-    session = Session(profile_name=settings.AWS_PROFILE_NAME)
+    session = Session(profile_name=profile_name)
     s3 = session.client('s3')
 except:
     logger.error('Error instantiating AWS services. AWS credentials might not be configured correctly. '
@@ -27,7 +37,7 @@ def transfer_image_url_to_s3(url, make_jpeg=False, max_size=None, thumbnail_size
         print('url already in s3', url)
         return url
     print('requesting', url)
-    request = requests.get(url, headers={'User-Agent': settings.USER_AGENT}, timeout=15)
+    request = requests.get(url, headers={'User-Agent': user_agent}, timeout=15)
     content_type = request.headers['Content-Type']
     if 'image/' not in content_type:
         raise Exception('Not an image')
@@ -40,23 +50,31 @@ def transfer_image_url_to_s3(url, make_jpeg=False, max_size=None, thumbnail_size
     image_url, image_file_name = upload_file(image, content_type, **kwargs)
     image.seek(0)
     image_thumbnail = make_thumbnail(image, content_type, size=thumbnail_size)
-    upload_file(image_thumbnail, content_type, file_name='{}-t'.format(image_file_name), **kwargs)
+    upload_file(image_thumbnail, content_type=content_type, file_name='{}-t'.format(image_file_name), **kwargs)
     return image_url
 
 
-def upload_file(file_obj, content_type=None, path=None, file_name=None, existing_keys=None):
+def upload_file(file_obj, content_type=None, path=None, file_name=None, make_jpeg=False, max_size=None, thumbnail_size=None, existing_keys=None):
     if not content_type:
         content_type = file_obj.content_type
     if content_type.startswith('image/'):
         file_obj = rotate_img(file_obj, content_type)
-    if not path:
-        path = 'images/'
+    if make_jpeg:
+        file_obj = convert_to_jpg(file_obj, content_type)
+        content_type = 'image/jpeg'
+    if max_size:
+        file_obj = make_thumbnail(file_obj, content_type, size=max_size)
     file_obj.seek(0)
     file_data = file_obj.read()
     if not file_name:
         sha = hashlib.sha1()
         sha.update(file_data)
         file_name = sha.hexdigest()
+    if thumbnail_size:
+        image_thumbnail = make_thumbnail(file_obj, content_type, size=thumbnail_size)
+        upload_file(image_thumbnail, content_type=content_type, file_name='{}-t'.format(file_name))
+    if not path:
+        path = 'images/'
     key = '{}{}'.format(path, file_name)
     if not existing_keys or key not in existing_keys:
         # print('uploading to s3', key)
