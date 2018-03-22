@@ -1,4 +1,5 @@
 import hashlib
+import imghdr
 import io
 import logging
 import mimetypes
@@ -38,7 +39,11 @@ def transfer_image_url_to_s3(url, make_jpeg=False, max_size=None, thumbnail_size
         return url
     print('requesting', url)
     request = requests.get(url, headers={'User-Agent': user_agent}, timeout=15)
-    content_type = request.headers['Content-Type']
+    content_type = request.headers.get('Content-Type')
+    if not content_type:
+        what = imghdr.what(None, request.content)
+        if what:
+            content_type = 'image/' + what
     if 'image/' not in content_type:
         raise Exception('Not an image')
     image = io.BytesIO(request.content)
