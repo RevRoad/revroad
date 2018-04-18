@@ -21,7 +21,9 @@ def get_user_info(token, include_friends=False):
         fields = 'id,first_name,last_name,email,picture.type(large),cover'
         if include_friends:
             fields += ',friends'
-        return requests.get('https://graph.facebook.com/me?access_token={}&fields={}'.format(token, fields)).json()
+        r = requests.get('https://graph.facebook.com/me?access_token={}&fields={}'.format(token, fields)).json()
+        r['picture_url'] = 'https://graph.facebook.com/{}/picture?type=large'.format(r['id'])
+        return r
     except:
         logging.exception('get_user_info error')
     logging.debug('get_user_info exiting')
