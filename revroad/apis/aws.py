@@ -76,7 +76,7 @@ def upload_file(file_obj, content_type=None, path=None, file_name=None, make_jpe
         file_name = sha.hexdigest()
     if thumbnail_size:
         image_thumbnail = make_thumbnail(file_obj, content_type, size=thumbnail_size)
-        upload_file(image_thumbnail, content_type=content_type, file_name='{}-t'.format(file_name))
+        upload_file(image_thumbnail, content_type=content_type, path=path, file_name='{}-t'.format(file_name))
     if not path:
         path = 'images/'
     key = '{}{}'.format(path, file_name)
