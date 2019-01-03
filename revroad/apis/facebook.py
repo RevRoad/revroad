@@ -18,7 +18,7 @@ def debug_facebook_access_token(token):
 
 def get_user_info(token, include_friends=False):
     try:
-        fields = 'id,first_name,last_name,email,picture.type(large),cover'
+        fields = 'id,first_name,last_name,email,cover'
         if include_friends:
             fields += ',friends'
         r = requests.get('https://graph.facebook.com/me?access_token={}&fields={}'.format(token, fields)).json()

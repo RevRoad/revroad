@@ -58,7 +58,7 @@ def transfer_image_url_to_s3(url, make_jpeg=False, max_size=None, thumbnail_size
     return image_url
 
 
-def upload_file(file_obj, content_type=None, path=None, file_name=None, make_jpeg=False, max_size=None, thumbnail_size=None, existing_keys=None):
+def upload_file(file_obj, content_type=None, path=None, file_name=None, make_jpeg=False, max_size=None, thumbnail_size=None, existing_keys=None, cache_control=None):
     if not content_type:
         content_type = file_obj.content_type
     if content_type.startswith('image/'):
@@ -70,19 +70,21 @@ def upload_file(file_obj, content_type=None, path=None, file_name=None, make_jpe
         file_obj = make_thumbnail(file_obj, content_type, size=max_size)
     file_obj.seek(0)
     file_data = file_obj.read()
+    if not cache_control:
+        cache_control = f'max-age={604800 if file_name else 31536000}'
     if not file_name:
         sha = hashlib.sha1()
         sha.update(file_data)
         file_name = sha.hexdigest()
     if thumbnail_size:
         image_thumbnail = make_thumbnail(file_obj, content_type, size=thumbnail_size)
-        upload_file(image_thumbnail, content_type=content_type, path=path, file_name='{}-t'.format(file_name))
+        upload_file(image_thumbnail, content_type=content_type, path=path, file_name='{}-t'.format(file_name), cache_control=cache_control)
     if not path:
         path = 'images/'
     key = '{}{}'.format(path, file_name)
     if not existing_keys or key not in existing_keys:
         # print('uploading to s3', key)
-        s3.put_object(Bucket=s3_bucket, Body=file_data, Key=key, ACL='public-read', ContentType=content_type)
+        s3.put_object(Bucket=s3_bucket, Body=file_data, Key=key, ACL='public-read', ContentType=content_type, CacheControl=cache_control)
     return '{}/{}/{}'.format(s3.meta.endpoint_url, s3_bucket, key), file_name
 
 
@@ -96,6 +98,22 @@ def convert_to_jpg(image_file, content_type):
 
 
 def rotate_img(image_file, content_type):
+    """http://www.exif.org/Exif2-2.PDF
+        Orientation
+        The image orientation viewed in terms of rows and columns.
+        Tag = 274 (112.H)
+        Type = SHORT
+        Count = 1
+        Default = 1
+        1 = The 0th row is at the visual top of the image, and the 0th column is the visual left-hand side.
+        2 = The 0th row is at the visual top of the image, and the 0th column is the visual right-hand side.
+        3 = The 0th row is at the visual bottom of the image, and the 0th column is the visual right-hand side.
+        4 = The 0th row is at the visual bottom of the image, and the 0th column is the visual left-hand side.
+        5 = The 0th row is the visual left-hand side of the image, and the 0th column is the visual top.
+        6 = The 0th row is the visual right-hand side of the image, and the 0th column is the visual top.
+        7 = The 0th row is the visual right-hand side of the image, and the 0th column is the visual bottom.
+        8 = The 0th row is the visual left-hand side of the image, and the 0th column is the visual bottom.
+    """
     try:
         pillow_image = Image.open(image_file)
         for orientation in ExifTags.TAGS.keys():
